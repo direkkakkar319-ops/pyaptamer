@@ -429,7 +429,39 @@ class TestAptaTransPipeline:
         monkeypatch.setattr("pyaptamer.aptatrans._pipeline.MCTS", MockMCTS)
 
         with pytest.raises(RuntimeError, match="Could not generate the requested"):
-            pipeline.recommend(target="AUGCAUGC", n_candidates=2, max_attempts=3)
+            pipeline.recommend(
+                target="AUGCAUGC", n_candidates=2, max_attempts=3, strict=True
+            )
+
+    def test_recommend_relax_uniqueness(self, monkeypatch):
+        """Verify that strict=False returns partial results and issues a warning."""
+        device = torch.device("cpu")
+        model = MockAptaTransNeuralNet(device)
+        prot_words = {"AUG": 0.8, "GCA": 0.6, "UGC": 0.4, "CUA": 0.2}
+        pipeline = AptaTransPipeline(device=device, model=model, prot_words=prot_words)
+
+        class MockMCTS:
+            def __init__(self, **kwargs):
+                pass
+
+            def run(self, verbose: bool = False):
+                return {
+                    "candidate": "DUPLICATE",
+                    "sequence": "dup_sequence",
+                    "score": torch.tensor(0.2),
+                }
+
+        monkeypatch.setattr("pyaptamer.aptatrans._pipeline.MCTS", MockMCTS)
+
+        with pytest.warns(
+            RuntimeWarning, match="Could not generate the requested number"
+        ):
+            candidates = pipeline.recommend(
+                target="AUGCAUGC", n_candidates=5, max_attempts=10, strict=False
+            )
+
+        # Should have only 1 unique candidate despite requesting 5
+        assert len(candidates) == 1
 
     @pytest.mark.parametrize(
         "device, candidate, target",
