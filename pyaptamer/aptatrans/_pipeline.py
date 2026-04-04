@@ -204,6 +204,7 @@ class AptaTransPipeline:
         target: str,
         n_candidates: int = 10,
         max_attempts: int | None = None,
+        strict: bool = True,
         verbose: bool = True,
     ) -> set[tuple[str, str, float]]:
         """Recommend aptamer candidates for a given target protein.
@@ -222,6 +223,10 @@ class AptaTransPipeline:
         max_attempts : int | None, optional, default=None
             Maximum number of MCTS runs to attempt while collecting unique candidates.
             If None, uses ``max(100, 10 * n_candidates)``.
+        strict : bool, optional, default=True
+            If True, raises RuntimeError if the requested number of unique candidates
+            cannot be reached within `max_attempts`. If False, issues a warning and
+            returns whatever unique candidates were generated.
         verbose : bool, optional, default=True
             If True, enables print statements for debugging and progress tracking.
 
@@ -237,8 +242,8 @@ class AptaTransPipeline:
             If `n_candidates` is less than 1, or if `max_attempts` is not None and is
             less than 1.
         RuntimeError
-            If the maximum number of attempts is reached before collecting
-            `n_candidates` unique candidates.
+            If `strict` is True and the maximum number of attempts is reached before
+            collecting `n_candidates` unique candidates.
         """
         if n_candidates < 1:
             raise ValueError(
@@ -270,11 +275,17 @@ class AptaTransPipeline:
             attempts += 1
 
         if len(candidate_map) < n_candidates:
-            raise RuntimeError(
+            msg = (
                 "Could not generate the requested number of unique candidates within "
                 f"{max_attempts} attempts. Requested={n_candidates}, "
                 f"generated={len(candidate_map)}."
             )
+            if strict:
+                raise RuntimeError(msg)
+            else:
+                import warnings
+
+                warnings.warn(msg, RuntimeWarning)
 
         candidates = {
             (cand, seq, score) for (cand, seq), score in candidate_map.items()
