@@ -241,6 +241,15 @@ def mcts(request):
 class TestMCTS:
     """Tests for the MCTS() class."""
 
+    @pytest.mark.parametrize("n_iterations", [0, -1])
+    def test_init_invalid_n_iterations(self, n_iterations):
+        """Check ValueError is raised when n_iterations is less than 1."""
+        with pytest.raises(ValueError, match="Invalid n_iterations value"):
+            MCTS(
+                n_iterations=n_iterations,
+                experiment=MockExperimentAptaNet("ACGU", MockPipeline()),
+            )
+
     def test_reset(self, mcts):
         """Check correct reset of the inner state."""
         # modify its inner state
